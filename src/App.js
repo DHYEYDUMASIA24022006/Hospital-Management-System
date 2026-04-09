@@ -295,13 +295,13 @@ function App() {
     }
   });
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+    const saved = sessionStorage.getItem(SESSION_STORAGE_KEY);
     return saved ? JSON.parse(saved) : null;
   });
   const [authMode, setAuthMode] = useState('signin');
-  const [authName, setAuthName] = useState('');
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState(() => localStorage.getItem('hospital-auth-name') || '');
+  const [authEmail, setAuthEmail] = useState(() => localStorage.getItem('hospital-auth-email') || '');
+  const [authPassword, setAuthPassword] = useState(() => localStorage.getItem('hospital-auth-pwd') || '');
   const [bulkAllocateCount, setBulkAllocateCount] = useState(50);
   const [regName, setRegName] = useState('');
   const [regDisease, setRegDisease] = useState('');
@@ -319,8 +319,8 @@ function App() {
   const [demoImported, setDemoImported] = useState(false);
   const [stateHydrated, setStateHydrated] = useState(false);
   const [liveMode, setLiveMode] = useState(true);
-  const [liveInflow, setLiveInflow] = useState(1);
-  const [liveIntervalSec, setLiveIntervalSec] = useState(30);
+  const [liveInflow, setLiveInflow] = useState(2);
+  const [liveIntervalSec, setLiveIntervalSec] = useState(10);
   const [, setTick] = useState(0);
   const didAutoImportRef = useRef(false);
   const admittedRef = useRef([]);
@@ -343,9 +343,14 @@ function App() {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
   }, [users]);
   useEffect(() => {
-    if (currentUser) localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
-    else localStorage.removeItem(SESSION_STORAGE_KEY);
+    if (currentUser) sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
+    else sessionStorage.removeItem(SESSION_STORAGE_KEY);
   }, [currentUser]);
+  useEffect(() => {
+    localStorage.setItem('hospital-auth-name', authName);
+    localStorage.setItem('hospital-auth-email', authEmail);
+    localStorage.setItem('hospital-auth-pwd', authPassword);
+  }, [authName, authEmail, authPassword]);
 
   const formatTime = (sec) => {
     let val = sec;
@@ -506,19 +511,10 @@ function App() {
       total
     };
   }, [getDiseaseProfile]);
-  const handleAuthSubmit = () => {
+  const handleSignInSubmit = () => {
     try {
       const email = authEmail.trim().toLowerCase();
       if (!email || !authPassword.trim()) return pushToast('Email and password are required.', 'error');
-      if (authMode === 'signup') {
-        if (!authName.trim()) return pushToast('Please enter your full name.', 'error');
-        if (users.some((u) => u.email === email)) return pushToast('User already exists. Please sign in.', 'error');
-        const newUser = { id: Date.now(), name: authName.trim(), email, password: authPassword };
-        setUsers((prev) => [...prev, newUser]);
-        setCurrentUser({ id: newUser.id, name: newUser.name, email: newUser.email });
-        pushToast(`Welcome ${newUser.name}`, 'success');
-        return;
-      }
       const existing = users.find((u) => u.email === email && u.password === authPassword);
       if (!existing) return pushToast('Sign in failed: invalid credentials.', 'error');
       setCurrentUser({ id: existing.id, name: existing.name, email: existing.email });
@@ -527,6 +523,25 @@ function App() {
       pushToast('Sign in failed due to a system error.', 'error');
     }
   };
+
+  const handleSignUpSubmit = () => {
+    try {
+      const email = authEmail.trim().toLowerCase();
+      if (!email || !authPassword.trim()) return pushToast('Email and password are required.', 'error');
+      if (!authName.trim()) return pushToast('Please enter your full name.', 'error');
+      if (users.some((u) => u.email === email)) return pushToast('User already exists. Please sign in.', 'error');
+      const newUser = { id: Date.now(), name: authName.trim(), email, password: authPassword };
+      setUsers((prev) => [...prev, newUser]);
+      setAuthName('');
+      setAuthEmail('');
+      setAuthPassword('');
+      setAuthMode('signin');
+      pushToast(`Account created for ${newUser.name}. Please sign in.`, 'success');
+    } catch {
+      pushToast('Registration failed due to a system error.', 'error');
+    }
+  };
+
   const handleSignOut = () => {
     try {
       if (!currentUser) return pushToast('Sign out failed: no active session.', 'error');
@@ -759,20 +774,20 @@ function App() {
     const inflow = Math.max(1, Math.min(20, Number(liveInflow) || 6));
     const liveTimer = setInterval(() => {
       const shouldGrowQueue = pqRef.current.size < 300;
-      if (shouldGrowQueue) enqueueAutoPatient(inflow);
+      if (shouldGrowQueue) enqueueAutoPatient(inflow + Math.floor(Math.random() * 2));
       
-      const duePatients = admitted.filter((p) => Date.now() >= (p.bedAllocTime + getEffectiveStayMs(p)));
+      const duePatients = admittedRef.current.filter((p) => Date.now() >= (p.bedAllocTime + getEffectiveStayMs(p)));
       duePatients.forEach((p) => dischargePatient(p.id, { silent: true }));
       
       if (pqRef.current.size > 0 && bedsRef.current.free > 0) {
-        if (Math.random() > 0.3) {
-          const cycles = Math.min(1 + Math.floor(Math.random() * 3), bedsRef.current.free, pqRef.current.size);
+        if (Math.random() > 0.05) {
+          const cycles = Math.min(2 + Math.floor(Math.random() * 2), bedsRef.current.free, pqRef.current.size);
           for (let i = 0; i < cycles; i++) allocateNextPatient(true);
         }
       }
     }, cadence * 1000);
     return () => clearInterval(liveTimer);
-  }, [admitted, allocateNextPatient, dischargePatient, enqueueAutoPatient, stateHydrated, liveMode, liveInflow, liveIntervalSec, getEffectiveStayMs]);
+  }, [allocateNextPatient, dischargePatient, enqueueAutoPatient, stateHydrated, liveMode, liveInflow, liveIntervalSec, getEffectiveStayMs]);
 
   const importDemoPatients = useCallback((opts = {}) => {
     if (demoImported) {
@@ -906,18 +921,40 @@ function App() {
     syncBedsFromAdmitted(admitted);
   }, [admitted, syncBedsFromAdmitted]);
 
+  const lastStateSigRef = useRef('');
+  
+  useEffect(() => {
+    if (!stateHydrated) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(API_STATE_ENDPOINT);
+        if (!res.ok) return;
+        const remote = await res.json();
+        delete remote.updatedAt;
+        const text = JSON.stringify(remote);
+        if (text === lastStateSigRef.current) return;
+        
+        lastStateSigRef.current = text;
+        applySnapshot(remote);
+      } catch {}
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [stateHydrated, applySnapshot]);
+
   useEffect(() => {
     if (!stateHydrated) return;
     const snapshot = buildSnapshot();
-    localStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(snapshot));
+    const text = JSON.stringify(snapshot);
+    if (text === lastStateSigRef.current) return;
+    
+    lastStateSigRef.current = text;
+    localStorage.setItem(APP_STATE_STORAGE_KEY, text);
     fetch(API_STATE_ENDPOINT, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(snapshot)
-    }).catch(() => {
-      // fallback already persisted locally
-    });
-  }, [stateHydrated, buildSnapshot, clock]);
+      body: text
+    }).catch(() => {});
+  }, [stateHydrated, buildSnapshot]);
 
   const criticalPatients = [...waitingList.filter((p) => p.emergencyLevel >= 6), ...admitted.filter((p) => p.emergencyLevel >= 6)].slice(0, 8);
   const dist = [0, 0, 0, 0, 0, 0, 0];
@@ -965,7 +1002,15 @@ function App() {
 
   if (!currentUser) {
     return (
-      <div className={`app-shell auth-shell ${theme === 'light' ? 'theme-light' : ''}`}>
+      <>
+        <div className="toast-container">
+          {toasts.map((t) => (
+            <div key={t.id} className={`toast toast-${t.type}`}>
+              {t.msg}
+            </div>
+          ))}
+        </div>
+        <div className={`app-shell auth-shell ${theme === 'light' ? 'theme-light' : ''}`}>
         <div className="auth-card">
           <div className="logo auth-logo">
             <div className="logo-icon"><span className="logo-heart">✚</span></div>
@@ -978,7 +1023,7 @@ function App() {
           )}
           <input value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="Email address" />
           <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="Password" />
-          <button className="btn btn-primary" onClick={handleAuthSubmit}>
+          <button className="btn btn-primary" onClick={authMode === 'signup' ? handleSignUpSubmit : handleSignInSubmit}>
             {authMode === 'signup' ? 'Sign Up' : 'Sign In'}
           </button>
           <button className="btn btn-ghost" onClick={() => setAuthMode((m) => (m === 'signup' ? 'signin' : 'signup'))}>
@@ -987,6 +1032,7 @@ function App() {
           {!!users.length && <div className="auth-sub">Registered users: {users.length}</div>}
         </div>
       </div>
+      </>
     );
   }
 
