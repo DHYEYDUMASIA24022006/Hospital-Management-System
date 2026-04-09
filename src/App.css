@@ -568,7 +568,7 @@ main {
 
 .bed-grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
+  grid-template-columns: repeat(15, 1fr);
   gap: 6px;
 }
 
@@ -1454,7 +1454,7 @@ main {
 
 .bed-grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
+  grid-template-columns: repeat(15, 1fr);
   gap: 6px;
 }
 

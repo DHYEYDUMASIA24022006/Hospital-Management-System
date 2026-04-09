@@ -1,44 +1,28 @@
 import './App.css';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import patientSeed from './data/patients-80.json';
+import patientSeed from './data/patients-500.json';
 
 const ROOM_TYPES = ['General', 'Normal', 'Deluxe', 'ICU'];
-const HOSPITAL_BEDS = 1000;
-const BED_CAPACITY = { General: 400, Normal: 300, Deluxe: 200, ICU: 100 };
-const LIVE_TIME_ACCELERATION = 180;
-const ROOM_RATES = { General: 1800, Normal: 3200, Deluxe: 5200, ICU: 9800 };
+const HOSPITAL_BEDS = 300;
+const BED_CAPACITY = { General: 120, Normal: 90, Deluxe: 60, ICU: 30 };
+const LIVE_TIME_ACCELERATION = 1200;
+const ROOM_RATES = { General: 285, Normal: 350, Deluxe: 450, ICU: 1400 };
 const THEME_STORAGE_KEY = 'hospital-theme';
 const USERS_STORAGE_KEY = 'hospital-users';
 const SESSION_STORAGE_KEY = 'hospital-session-user';
 const APP_STATE_STORAGE_KEY = 'hospital-app-state-v1';
 const API_STATE_ENDPOINT = '/api/state';
+const FIRST_NAMES = ["Oliver", "William", "James", "Benjamin", "Lucas", "Henry", "Mason", "Michael", "Ethan", "Daniel", "Jacob", "Logan", "Jackson", "Levi", "Sebastian", "Mateo", "Owen", "Emma", "Olivia", "Ava", "Isabella", "Sophia", "Charlotte", "Mia", "Amelia", "Harper", "Abigail", "Emily", "Elizabeth", "Mila", "Ella", "Sofia", "Camila", "Aria", "Rahul", "Aarav", "Neha", "Diya", "Rohan"];
+const LAST_NAMES = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez", "Patel", "Sharma", "Singh", "Kumar"];
 const DOCTORS = [
   { id: 1, name: 'Dr. House', specialty: 'Cardiology', maxPatients: 20 },
-  { id: 2, name: 'Dr. Priya Sharma', specialty: 'Cardiology', maxPatients: 24 },
-  { id: 3, name: 'Dr. Alan Reed', specialty: 'Pulmonology', maxPatients: 24 },
-  { id: 4, name: 'Dr. Neha Kapoor', specialty: 'Pulmonology', maxPatients: 20 },
-  { id: 5, name: 'Dr. Arjun Mehta', specialty: 'Neurology', maxPatients: 20 },
-  { id: 6, name: 'Dr. Susan Lim', specialty: 'Neurology', maxPatients: 18 },
-  { id: 7, name: 'Dr. Kavya Iyer', specialty: 'Orthopedics', maxPatients: 26 },
-  { id: 8, name: 'Dr. Rohan Nair', specialty: 'Orthopedics', maxPatients: 22 },
-  { id: 9, name: 'Dr. Omar Siddiqui', specialty: 'Nephrology', maxPatients: 18 },
-  { id: 10, name: 'Dr. Meera Joshi', specialty: 'Gastroenterology', maxPatients: 20 },
-  { id: 11, name: 'Dr. Isha Menon', specialty: 'Dermatology', maxPatients: 16 },
-  { id: 12, name: 'Dr. Nikhil Batra', specialty: 'General Medicine', maxPatients: 30 },
-  { id: 13, name: 'Dr. Grace Thomas', specialty: 'General Medicine', maxPatients: 28 },
-  { id: 14, name: 'Dr. Rahul Verma', specialty: 'Emergency Medicine', maxPatients: 24 },
-  { id: 15, name: 'Dr. Liam Chen', specialty: 'Emergency Medicine', maxPatients: 22 },
-  { id: 16, name: 'Dr. Fatima Noor', specialty: 'Gastroenterology', maxPatients: 18 },
-  { id: 17, name: 'Dr. Arvind Rao', specialty: 'Nephrology', maxPatients: 16 },
-  { id: 18, name: 'Dr. Rebecca Paul', specialty: 'Pulmonology', maxPatients: 18 },
-  { id: 19, name: 'Dr. Ethan Blake', specialty: 'Cardiology', maxPatients: 18 },
-  { id: 20, name: 'Dr. Ayesha Khan', specialty: 'General Medicine', maxPatients: 24 },
-  { id: 21, name: 'Dr. Vikram Sethi', specialty: 'Infectious Disease', maxPatients: 22 },
-  { id: 22, name: 'Dr. Julia Fernandes', specialty: 'Infectious Disease', maxPatients: 18 },
-  { id: 23, name: 'Dr. Harshad Vora', specialty: 'Trauma Surgery', maxPatients: 16 },
-  { id: 24, name: 'Dr. Elina Roy', specialty: 'Trauma Surgery', maxPatients: 14 },
-  { id: 25, name: 'Dr. Martin Dsouza', specialty: 'Critical Care', maxPatients: 18 },
-  { id: 26, name: 'Dr. Pooja Nanda', specialty: 'Critical Care', maxPatients: 16 }
+  { id: 2, name: 'Dr. Alan Reed', specialty: 'Pulmonology', maxPatients: 24 },
+  { id: 3, name: 'Dr. Arjun Mehta', specialty: 'Neurology', maxPatients: 20 },
+  { id: 4, name: 'Dr. Kavya Iyer', specialty: 'Orthopedics', maxPatients: 26 },
+  { id: 5, name: 'Dr. Nikhil Batra', specialty: 'General Medicine', maxPatients: 30 },
+  { id: 6, name: 'Dr. Rahul Verma', specialty: 'Emergency Medicine', maxPatients: 24 },
+  { id: 7, name: 'Dr. Vikram Sethi', specialty: 'Infectious Disease', maxPatients: 22 },
+  { id: 8, name: 'Dr. Martin Dsouza', specialty: 'Critical Care', maxPatients: 18 }
 ];
 DOCTORS.forEach((doctor) => { doctor.maxPatients *= 2; });
 const SPECIALTY_KEYWORDS = [
@@ -335,8 +319,8 @@ function App() {
   const [demoImported, setDemoImported] = useState(false);
   const [stateHydrated, setStateHydrated] = useState(false);
   const [liveMode, setLiveMode] = useState(true);
-  const [liveInflow, setLiveInflow] = useState(6);
-  const [liveIntervalSec, setLiveIntervalSec] = useState(5);
+  const [liveInflow, setLiveInflow] = useState(1);
+  const [liveIntervalSec, setLiveIntervalSec] = useState(30);
   const [, setTick] = useState(0);
   const didAutoImportRef = useRef(false);
   const admittedRef = useRef([]);
@@ -444,11 +428,11 @@ function App() {
     []
   );
   const estimateWaitSeconds = useCallback((patient, queueDepth) => {
-    const baseByEmergency = { 7: 60, 6: 2 * 60, 5: 5 * 60, 4: 10 * 60, 3: 16 * 60, 2: 24 * 60, 1: 36 * 60 };
-    const loadFactor = Math.floor((queueDepth / Math.max(1, HOSPITAL_BEDS)) * 55 * 60);
-    const variability = (patient.id * 41 + queueDepth * 17) % (9 * 60);
-    const capped = (baseByEmergency[patient.emergencyLevel] || 12 * 60) + loadFactor + variability;
-    return Math.min(3 * 60 * 60, Math.max(60, capped));
+    const baseByEmergency = { 7: 15, 6: 30, 5: 60, 4: 2 * 60, 3: 4 * 60, 2: 6 * 60, 1: 8 * 60 };
+    const loadFactor = Math.floor((queueDepth / Math.max(1, HOSPITAL_BEDS)) * 4 * 60);
+    const variability = (patient.id * 41 + queueDepth * 17) % (3 * 60);
+    const capped = (baseByEmergency[patient.emergencyLevel] || 5 * 60) + loadFactor + variability;
+    return Math.min(14 * 60 + 59, Math.max(10, capped));
   }, []);
   const safeMoney = (num) => {
     if (!Number.isFinite(num)) return 0;
@@ -483,9 +467,14 @@ function App() {
   }, []);
   const buildBill = useCallback((patient, dischargeTime) => {
     const rawStay = Number((dischargeTime - patient.bedAllocTime) / (1000 * 60 * 60));
-    const stayHours = Math.max(1, Math.ceil(Number.isFinite(rawStay) ? rawStay : 1));
+    const stayHours = patient.estimatedStayHours || Math.max(1, Math.ceil(Number.isFinite(rawStay) ? rawStay : 1));
+    
+    const diseaseText = (patient.disease || '').toLowerCase();
+    const isSevere = patient.emergencyLevel >= 5 || diseaseText.includes('accident') || diseaseText.includes('severe') || diseaseText.includes('trauma') || diseaseText.includes('burn') || diseaseText.includes('stroke') || diseaseText.includes('failure');
+    const billedHours = isSevere ? Math.ceil(stayHours / 24) * 24 : stayHours;
+
     const roomRate = ROOM_RATES[patient.roomType] || ROOM_RATES.General;
-    const roomCharge = safeMoney(stayHours * roomRate);
+    const roomCharge = safeMoney(billedHours * roomRate);
     const profile = getDiseaseProfile(patient.disease);
     const emergencyCharge = safeMoney(patient.emergencyLevel * 950);
     const doctorFee = safeMoney(1400 + patient.emergencyLevel * 700);
@@ -590,13 +579,14 @@ function App() {
     doctorLoadsRef.current = snapshot.doctorLoads || doctorLoadsRef.current;
     nextIdRef.current = Number(snapshot.nextId) || nextIdRef.current;
     mfRef.current = new MedianFinder();
-    mfRef.current.low = snapshot.median?.low || [];
-    mfRef.current.high = snapshot.median?.high || [];
-    mfRef.current.total = Number(snapshot.median?.total) || 0;
-    mfRef.current.count = Number(snapshot.median?.count) || 0;
+    mfRef.current.low = [];
+    mfRef.current.high = [];
+    mfRef.current.total = 0;
+    mfRef.current.count = 0;
 
     const restoredAdmitted = Array.isArray(snapshot.admitted) ? snapshot.admitted : [];
-    const restoredDischarged = Array.isArray(snapshot.discharged) ? snapshot.discharged : [];
+    const rawDischarged = Array.isArray(snapshot.discharged) ? snapshot.discharged : [];
+    const restoredDischarged = rawDischarged.filter(p => !p.dischargeTime || p.dischargeTime <= Date.now());
     setAdmitted(restoredAdmitted);
     setDischarged(restoredDischarged);
     setDemoImported(Boolean(snapshot.demoImported));
@@ -666,11 +656,14 @@ function App() {
     for (let i = 0; i < count; i++) {
       const seed = patientSeed[(nextIdRef.current + i) % patientSeed.length];
       if (!seed) continue;
+      const fName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+      const lName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+      const randomName = `${fName} ${lName}`;
       const emergencyLevel = Math.max(1, Math.min(7, Number(seed.emergencyLevel) || 2));
       const p = {
         id: nextIdRef.current++,
-        name: toUpperName(seed.name || `PATIENT ${nextIdRef.current}`),
-        initials: getInitials(seed.name || `PATIENT ${nextIdRef.current}`),
+        name: toUpperName(randomName),
+        initials: getInitials(randomName),
         disease: seed.disease || 'GENERAL CHECKUP',
         preferredRoom: ROOM_TYPES.includes(seed.preferredRoom) ? seed.preferredRoom : 'General',
         roomType: '',
@@ -744,10 +737,6 @@ function App() {
     if (!current) return;
 
     const p = { ...current, dischargeTime: Date.now() };
-    const estimatedDischarge = p.bedAllocTime + p.estimatedStayHours * 60 * 60 * 1000;
-    // For auto-discharge, respect estimated stay completion.
-    // For manual discharge button, discharge immediately in real time.
-    if (opts.silent && p.dischargeTime < estimatedDischarge) p.dischargeTime = estimatedDischarge;
     p.bill = buildBill(p, p.dischargeTime);
     p.feedback = createFeedback(p);
 
@@ -771,11 +760,15 @@ function App() {
     const liveTimer = setInterval(() => {
       const shouldGrowQueue = pqRef.current.size < 300;
       if (shouldGrowQueue) enqueueAutoPatient(inflow);
+      
       const duePatients = admitted.filter((p) => Date.now() >= (p.bedAllocTime + getEffectiveStayMs(p)));
       duePatients.forEach((p) => dischargePatient(p.id, { silent: true }));
-      if (!duePatients.length && pqRef.current.size > 0 && bedsRef.current.free > 0) {
-        const cycles = bedsRef.current.free > 10 ? 2 : 1;
-        for (let i = 0; i < cycles; i++) allocateNextPatient(true);
+      
+      if (pqRef.current.size > 0 && bedsRef.current.free > 0) {
+        if (Math.random() > 0.3) {
+          const cycles = Math.min(1 + Math.floor(Math.random() * 3), bedsRef.current.free, pqRef.current.size);
+          for (let i = 0; i < cycles; i++) allocateNextPatient(true);
+        }
       }
     }, cadence * 1000);
     return () => clearInterval(liveTimer);
@@ -976,7 +969,7 @@ function App() {
         <div className="auth-card">
           <div className="logo auth-logo">
             <div className="logo-icon"><span className="logo-heart">✚</span></div>
-            Medi<span>Nova Prime</span>
+            3D <span>MULTISPECIALIST HOSPITAL</span>
           </div>
           <h2>{authMode === 'signup' ? 'Create account' : 'Welcome back'}</h2>
           <p className="auth-sub">Sign in to access the hospital dashboard.</p>
@@ -1004,7 +997,7 @@ function App() {
           <div className="logo-icon">
             <span className="logo-heart">✚</span>
           </div>
-          Medi<span>Nova Prime</span>
+          3D <span>MULTISPECIALIST HOSPITAL</span>
         </div>
         <div className="header-stats">
           <div className="hstat"><strong>{currentUser.name}</strong>{currentUser.email}</div>
@@ -1448,11 +1441,37 @@ function App() {
           {activePanel === 'about' && (
             <div className="panel active">
               <div className="page-title">About Us</div>
-              <div className="card">
-                <div className="card-title">MediNova Prime Hospital</div>
-                <p className="about-text">MediNova Prime is a multi-specialty hospital focused on emergency response, critical care, and patient-first treatment quality with advanced bed and doctor allocation systems.</p>
-                <p className="about-text"><strong>Owner:</strong>Dhyey Dharmeshbhai Dumasia</p>
-                <p className="about-text">Our mission is to keep wait times minimal, provide transparent billing, and ensure every patient is assigned to the right specialist quickly.</p>
+              <div className="card" style={{ marginBottom: '20px' }}>
+                <div className="card-title">Welcome to 3D MULTISPECIALIST HOSPITAL</div>
+                <p className="about-text">3D MULTISPECIALIST HOSPITAL is a premier multi-specialty healthcare institution dedicated to providing top-tier medical services. With a heavy focus on emergency response, critical care, and patient-first methodologies, we strive to achieve medical excellence in every facet of treatment.</p>
+                
+                <h3 style={{ marginTop: '20px', marginBottom: '10px', fontSize: '1rem' }}>Our History</h3>
+                <p className="about-text">Founded by <strong>Dhyey Dharmeshbhai Dumasia</strong>, the hospital started as a small private clinic and has since blossomed into a monumental 300-bed facility equipped with the latest medical technology. Through relentless growth, we have expanded our capacity while successfully decreasing wait-times, setting a new benchmark for proactive and empathetic patient care.</p>
+                
+                <h3 style={{ marginTop: '20px', marginBottom: '10px', fontSize: '1rem' }}>Contact & Location</h3>
+                <div className="two-col" style={{ marginTop: '10px', lineHeight: '1.6' }}>
+                  <div>
+                    <strong>Phone Number:</strong><br />
+                    +91 98765 43210 <br />
+                    +91 01234 56789 (Emergency)
+                  </div>
+                  <div>
+                    <strong>Email:</strong><br />
+                    contact@3dhospital.com<br />
+                    emergency@3dhospital.com
+                  </div>
+                  <div>
+                    <strong>Address:</strong><br />
+                    123 Prime Healthcare Avenue,<br />
+                    Medical Hub District,<br />
+                    Mumbai, Maharashtra - 400001
+                  </div>
+                  <div>
+                    <strong>Operating Hours:</strong><br />
+                    Emergency & ICU: 24/7<br />
+                    OPD: 8:00 AM - 8:00 PM
+                  </div>
+                </div>
               </div>
             </div>
           )}
